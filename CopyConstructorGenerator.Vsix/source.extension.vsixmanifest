@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+    <Metadata>
+        <Identity Id="CopyConstructorGenerator.acf5cee4-f72b-4332-80fb-20a7654a45da" Version="1.0" Language="en-US" Publisher="kttFox"/>
+        <DisplayName>CopyConstructorGenerator</DisplayName>
+        <Description xml:space="preserve">コピーコンストラクタを作成します。
+class, List, Dictionary に対応しています。</Description>
+        <MoreInfo>https://github.com/kttFox/CopyConstructorGenerator</MoreInfo>
+        <Tags>Analyzer, Constructor</Tags>
+    </Metadata>
+    <Installation>
+        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
+            <ProductArchitecture>arm64</ProductArchitecture>
+        </InstallationTarget>
+        <InstallationTarget Version="[17.0,)" Id="Microsoft.VisualStudio.Community">
+            <ProductArchitecture>amd64</ProductArchitecture>
+        </InstallationTarget>
+    </Installation>
+    <Assets>
+        <Asset Type="Microsoft.VisualStudio.MefComponent" d:Source="Project" d:ProjectName="CopyConstructorGenerator" Path="|CopyConstructorGenerator|"/>
+        <Asset Type="Microsoft.VisualStudio.Analyzer" d:Source="Project" d:ProjectName="CopyConstructorGenerator" Path="|CopyConstructorGenerator|"/>
+        <Asset Type="Microsoft.VisualStudio.MefComponent" d:Source="Project" d:ProjectName="CopyConstructorGenerator.CodeFixes" Path="|CopyConstructorGenerator.CodeFixes|"/>
+        <Asset Type="Microsoft.VisualStudio.Analyzer" d:Source="Project" d:ProjectName="CopyConstructorGenerator.CodeFixes" Path="|CopyConstructorGenerator.CodeFixes|"/>
+    </Assets>
+    <Prerequisites>
+        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,)" DisplayName="Visual Studio core editor" />
+    </Prerequisites>
+</PackageManifest>

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace CopyConstructorGenerator2022 {
+namespace CopyConstructorGenerator {
 	internal static class Extensions {
 
 		public static TRoot InsertNodesBefore<TRoot>( this TRoot root, Func<TRoot, SyntaxNode> nodeInList, IEnumerable<SyntaxNode> newNodes ) where TRoot : SyntaxNode {

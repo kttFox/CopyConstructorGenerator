@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	<VersionPrefix>1.0</VersionPrefix>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>CopyConstructorGenerator</PackageId>
+    <Authors>kttFox</Authors>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Description>コピーコンストラクタを作成します。
+class, List, Dictionary に対応しています。</Description>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Copyright>© kttFox</Copyright>
+    <PackageTags>CopyConstructorGenerator, analyzers, Constructor</PackageTags>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddAnalyzersToOutput</TargetsForTfmSpecificContentInPackage>
+    <PackageProjectUrl>https://github.com/kttFox/CopyConstructorGenerator</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/kttFox/CopyConstructorGenerator</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CopyConstructorGenerator.CodeFixes\CopyConstructorGenerator.CodeFixes.csproj" />
+    <ProjectReference Include="..\CopyConstructorGenerator\CopyConstructorGenerator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="tools\*.ps1" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <Target Name="_AddAnalyzersToOutput">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(OutputPath)\CopyConstructorGenerator.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(OutputPath)\CopyConstructorGenerator.CodeFixes.dll" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>

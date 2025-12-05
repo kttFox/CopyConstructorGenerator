@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="CopyConstructorGenerator.CodeFixes/CopyConstructorGenerator.CodeFixes.csproj" Id="73f25d35-f85b-46fb-8aea-43ac41dc97ee" />
+  <Project Path="CopyConstructorGenerator.Package/CopyConstructorGenerator.Package.csproj" Id="456eea80-ee6d-46cf-976e-c6488e9f97ee" />
+  <Project Path="CopyConstructorGenerator.Test/CopyConstructorGenerator.Test.csproj" Id="2dfc3d12-ece1-42ab-a43b-18318b499951" />
+  <Project Path="CopyConstructorGenerator.Vsix/CopyConstructorGenerator.Vsix.csproj" Id="4b196dde-664b-42ca-8d3c-dfeca13df22f" />
+  <Project Path="CopyConstructorGenerator/CopyConstructorGenerator.csproj" Id="3d07a7e9-bacc-479c-9ecc-78268a3198f0" />
+  <Project Path="DebugProject1/DebugProject1.csproj" Id="f2f524e3-80b7-4ebe-b9b8-56d19cbda363" />
+</Solution>

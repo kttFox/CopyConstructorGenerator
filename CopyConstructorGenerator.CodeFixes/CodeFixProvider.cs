@@ -1,28 +1,23 @@
-﻿using Microsoft.CodeAnalysis.Formatting;
-using System;
-using System.Reflection;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Rename;
-using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.Formatting;
 
 
-namespace CopyConstructorGenerator2022 {
-	[ExportCodeFixProvider( LanguageNames.CSharp, Name = nameof( CopyConstructorGeneratorAnalyzerCodeFixProvider ) ), Shared]
-	public class CopyConstructorGeneratorAnalyzerCodeFixProvider : CodeFixProvider {
-
+namespace CopyConstructorGenerator {
+	[ExportCodeFixProvider( LanguageNames.CSharp, Name = nameof( CopyConstructorGeneratorCodeFixProvider ) ), Shared]
+	public class CopyConstructorGeneratorCodeFixProvider : CodeFixProvider {
 
 		public sealed override ImmutableArray<string> FixableDiagnosticIds {
-			get { return ImmutableArray.Create( CopyConstructorGenerator2022Analyzer.DiagnosticId ); }
+			get { return ImmutableArray.Create( CopyConstructorGeneratorAnalyzer.DiagnosticId ); }
 		}
 
 		public sealed override FixAllProvider GetFixAllProvider() {
@@ -47,7 +42,7 @@ namespace CopyConstructorGenerator2022 {
 			if( classDeclaration.Members.Any() ) {
 				// コード編集を登録します。
 				context.RegisterCodeFix(
-					CodeAction.Create( "コピーコンストラクタの作成",
+					CodeAction.Create( CodeFixResources.CodeFixTitle,
 						token => {
 							var values = classDeclaration.Members
 											.Where( x => {
@@ -94,7 +89,7 @@ namespace CopyConstructorGenerator2022 {
 					diagnostic );
 
 				context.RegisterCodeFix(
-					CodeAction.Create( "コピーコンストラクタの作成 (プロパティのみ)",
+					CodeAction.Create( CodeFixResources.CodeFixTitleProperyOnly,
 						token => {
 							var values = classDeclaration.Members.OfType<PropertyDeclarationSyntax>()
 											.Where( x => x.AccessorList?.Accessors.Any( z => z.IsKind( SyntaxKind.GetAccessorDeclaration ) ) == true )
@@ -104,7 +99,7 @@ namespace CopyConstructorGenerator2022 {
 											} );
 
 							var newRegionConst = CreateCopyConstructor( className, values );
-
+							
 							var newClassDeclaration = classDeclaration
 									.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
 									.InsertNodesBefore( r => r.Members.First(), newRegionConst )
@@ -142,7 +137,7 @@ namespace CopyConstructorGenerator2022 {
 						}
 					}
 
-					case "Dictionary": {
+					case "": {
 						if( generic.TypeArgumentList.Arguments.Any( x => !( x is PredefinedTypeSyntax ) ) ) {
 							var T = ( count < genericArgs.Length ) ? genericArgs[count] : "x" + count;
 
@@ -192,12 +187,12 @@ namespace CopyConstructorGenerator2022 {
 		/// </summary>
 		IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values ) {
 			var regionSource =
-				"/// <summary>\r\n" +
-				"/// コピーコンストラクタ\r\n" +
-				"/// </summary>\r\n" +
-				$"public { className } ( {className} value )" + "{" + $@"
-					{ string.Join( "\r\n", values.ToArray() )}
-				" + "}";
+					$$"""
+						{{CodeFixResources.summary}}
+						public {{className}} ( {{className}} value ) {
+							{{string.Join("\r\n", values.ToArray())}}
+						}
+					""";
 			return CSharpSyntaxTree.ParseText( regionSource ).GetRoot()
 									.ChildNodes()
 									.OfType<MemberDeclarationSyntax>();
