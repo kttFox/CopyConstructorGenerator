@@ -24,7 +24,6 @@ namespace CopyConstructorGenerator {
 			return WellKnownFixAllProviders.BatchFixer;
 		}
 
-		readonly string[] _Modifiers = new[] { "const", "static" };
 
 		public sealed override async Task RegisterCodeFixesAsync( CodeFixContext context ) {
 
@@ -38,90 +37,66 @@ namespace CopyConstructorGenerator {
 
 			var className = classDeclaration.Identifier.Text;
 
+			var members = classDeclaration.Members
+							.Where( x => !x.Modifiers.Any( SyntaxKind.StaticKeyword ) )
+							.Where( x => !x.Modifiers.Any( SyntaxKind.ConstKeyword ) )
+							.Where( x => x switch {
+								PropertyDeclarationSyntax property => property.AccessorList?.Accessors.Any( SyntaxKind.GetAccessorDeclaration ) == true,// Getアクセスがあるプロパティのみを対象とする。
+								FieldDeclarationSyntax => true,
+								_ => false,
+							} );
 
-			if( classDeclaration.Members.Any() ) {
+			if( members.Any() ) {
+				Task<Document> CreateChangedDocument( IEnumerable<MemberDeclarationSyntax> members ) {
+					var values = members.Select( x => {
+						switch( x ) {
+							case PropertyDeclarationSyntax prop: {
+								var name = prop.Identifier.Text;
+
+								return CreateCopyValue( model, prop.Type, name );
+							}
+							case FieldDeclarationSyntax field: {
+								var f = field.Declaration;
+								var name = f.Variables.First().Identifier.Text;
+
+								return CreateCopyValue( model, f.Type, name );
+							}
+							default: {
+								throw new Exception();
+							}
+						}
+					} );
+
+					var newRegionConst = CreateCopyConstructor( className, values );
+
+					var newClassDeclaration = classDeclaration
+												.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
+												.InsertNodesBefore( r => r.Members.First(), newRegionConst )
+												.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
+
+					var newRoot = root.ReplaceNode( classDeclaration, newClassDeclaration );
+
+					var newDocument = context.Document.WithSyntaxRoot( newRoot );
+
+					return Task.FromResult( newDocument );
+				}
+
 				// コード編集を登録します。
 				context.RegisterCodeFix(
-					CodeAction.Create( CodeFixResources.CodeFixTitle,
-						token => {
-							var values = classDeclaration.Members
-											.Where( x => {
-												switch( x ) {
-													case PropertyDeclarationSyntax prop: {
-														return prop.AccessorList?.Accessors.Any( z => z.IsKind( SyntaxKind.GetAccessorDeclaration ) ) == true;
-													}
-													case FieldDeclarationSyntax field: {
-														return !field.Modifiers.Any( z => _Modifiers.Contains( z.Text ) );
-													}
-													default: {
-														return false;
-													}
-												}
-											} )
-											.Select( x => {
-												if( x is PropertyDeclarationSyntax prop ) {
-													var name = prop.Identifier.Text;
-
-													return CreateCopyValue( model, prop.Type, name );
-												} else if( x is FieldDeclarationSyntax field ) {
-													var f = field.Declaration;
-													var name = f.Variables.First().Identifier.Text;
-
-													return CreateCopyValue( model, f.Type, name );
-												}
-
-												throw new Exception();
-											} );
-
-							var newRegionConst = CreateCopyConstructor( className, values );
-
-							var newClassDeclaration = classDeclaration
-									.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
-									.InsertNodesBefore( r => r.Members.First(), newRegionConst )
-									.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
-
-							var newRoot = root.ReplaceNode( classDeclaration, newClassDeclaration );
-
-							var newDocument = context.Document.WithSyntaxRoot( newRoot );
-
-							return Task.FromResult( newDocument );
-						} ),
-					diagnostic );
+					CodeAction.Create( CodeFixResources.CodeFixTitle, _ => CreateChangedDocument( members ) ), diagnostic );
 
 				context.RegisterCodeFix(
-					CodeAction.Create( CodeFixResources.CodeFixTitleProperyOnly,
-						token => {
-							var values = classDeclaration.Members.OfType<PropertyDeclarationSyntax>()
-											.Where( x => x.AccessorList?.Accessors.Any( z => z.IsKind( SyntaxKind.GetAccessorDeclaration ) ) == true )
-											.Select( x => {
-												var name = x.Identifier.Text;
-												return CreateCopyValue( model, x.Type, name );
-											} );
-
-							var newRegionConst = CreateCopyConstructor( className, values );
-							
-							var newClassDeclaration = classDeclaration
-									.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
-									.InsertNodesBefore( r => r.Members.First(), newRegionConst )
-									.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
-
-							var newRoot = root.ReplaceNode( classDeclaration, newClassDeclaration );
-
-							var newDocument = context.Document.WithSyntaxRoot( newRoot );
-
-							return Task.FromResult( newDocument );
-						} ),
-					diagnostic );
+					CodeAction.Create( CodeFixResources.CodeFixTitleProperyOnly, _ => CreateChangedDocument( members.OfType<PropertyDeclarationSyntax>() ) ), diagnostic );
 			}
 		}
 
-		string CreateCopyValue( SemanticModel model, TypeSyntax type, string valueName ) {
+		static string CreateCopyValue( SemanticModel model, TypeSyntax type, string valueName ) {
 			return $"this.{valueName} = {GetDeepInstance( model, type, $"value.{valueName}" )};";
 		}
 
-		readonly string[] genericArgs = new string[] { "x", "z", "k" };
+		static readonly string[] genericArgs = ["x", "z", "k"];
 
-		string GetDeepInstance( SemanticModel model, TypeSyntax type, string value, int count = 0 ) {
+		static string GetDeepInstance( SemanticModel model, TypeSyntax type, string value, int count = 0 ) {
 			if( type is GenericNameSyntax generic ) {
 
 				// List と　Dictionary
@@ -133,23 +108,21 @@ namespace CopyConstructorGenerator {
 						} else {
 							var T = ( count < genericArgs.Length ) ? genericArgs[count] : "x" + count;
 
-							return $"{value}.Select({T}=> {GetDeepInstance(model, arg, $"{T}", count + 1 )} ).ToList()";
+							return $"{value}.Select({T}=> {GetDeepInstance( model, arg, $"{T}", count + 1 )} ).ToList()";
 						}
 					}
 
-					case "": {
-						if( generic.TypeArgumentList.Arguments.Any( x => !( x is PredefinedTypeSyntax ) ) ) {
-							var T = ( count < genericArgs.Length ) ? genericArgs[count] : "x" + count;
-
+					case "Dictionary": {
+						if( generic.TypeArgumentList.Arguments.Any( x => x is not PredefinedTypeSyntax ) ) {
 							var keyType = generic.TypeArgumentList.Arguments[0];
 							var valueType = generic.TypeArgumentList.Arguments[1];
 
 							var k = ( count == 0 ) ? "k" : "k" + count;
 							var v = ( count == 0 ) ? "v" : "v" + count;
 
-							return $"{value}.ToDictionary( {k}=> {GetDeepInstance(model, keyType, $"{k}.Key", count + 1 )}, {v}=> {GetDeepInstance(model, valueType, $"{v}.Value", count + 1 )} )";
+							return $"{value}.ToDictionary({k}=>{GetDeepInstance( model, keyType, $"{k}.Key", count + 1 )}, {v}=> {GetDeepInstance( model, valueType, $"{v}.Value", count + 1 )} )";
 						} else {
-							return $"{value}.ToDictionary( k=>k.Key, v=>v.Value )";
+							return $"{value}.ToDictionary(k=>k.Key, v=>v.Value )";
 						}
 					}
 
@@ -158,15 +131,14 @@ namespace CopyConstructorGenerator {
 				}
 
 				// Generic型の何か
-				return $"new {type.ToString()}({value}. )";
+				return $"new {type}({value}. )";
 			}
 
 			// struct or class
-			
+
 			switch( type ) {
-				case IdentifierNameSyntax t: {
-					var symbol = model.GetSymbolInfo(type).Symbol as ITypeSymbol;
-					switch( symbol.TypeKind ) {
+				case IdentifierNameSyntax: {
+					switch( ( model.GetSymbolInfo( type ).Symbol as ITypeSymbol )?.TypeKind ) {
 						case TypeKind.Enum:
 						case TypeKind.Struct:
 							return value;
@@ -174,23 +146,23 @@ namespace CopyConstructorGenerator {
 
 					break;
 				}
-				case PredefinedTypeSyntax _:
-				case NullableTypeSyntax _:
+				case PredefinedTypeSyntax:
+				case NullableTypeSyntax:
 					return value;
 			}
 
-			return $"new {type.ToString()}({value})";
+			return $"new {type}({value})";
 		}
 
 		/// <summary>
 
 		/// </summary>
-		IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values ) {
+		static IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values ) {
 			var regionSource =
 					$$"""
 						{{CodeFixResources.summary}}
 						public {{className}} ( {{className}} value ) {
-							{{string.Join("\r\n", values.ToArray())}}
+							{{string.Join( "\r\n", values.ToArray() )}}
 						}
 					""";
 			return CSharpSyntaxTree.ParseText( regionSource ).GetRoot()
