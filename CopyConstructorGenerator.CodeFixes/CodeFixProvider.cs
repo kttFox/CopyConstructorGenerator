@@ -46,48 +46,46 @@ namespace CopyConstructorGenerator {
 								_ => false,
 							} );
 
-			if( members.Any() ) {
-				Task<Document> CreateChangedDocument( IEnumerable<MemberDeclarationSyntax> members ) {
-					var values = members.Select( x => {
-						switch( x ) {
-							case PropertyDeclarationSyntax prop: {
-								var name = prop.Identifier.Text;
+			Task<Document> CreateChangedDocument( IEnumerable<MemberDeclarationSyntax> members ) {
+				var values = members.Select( x => {
+					switch( x ) {
+						case PropertyDeclarationSyntax prop: {
+							var name = prop.Identifier.Text;
 
-								return CreateCopyValue( model, prop.Type, name );
-							}
-							case FieldDeclarationSyntax field: {
-								var f = field.Declaration;
-								var name = f.Variables.First().Identifier.Text;
-
-								return CreateCopyValue( model, f.Type, name );
-							}
-							default: {
-								throw new Exception();
-							}
+							return CreateCopyValue( model, prop.Type, name );
 						}
-					} );
+						case FieldDeclarationSyntax field: {
+							var f = field.Declaration;
+							var name = f.Variables.First().Identifier.Text;
 
-					var newRegionConst = CreateCopyConstructor( className, values );
+							return CreateCopyValue( model, f.Type, name );
+						}
+						default: {
+							throw new Exception();
+						}
+					}
+				} );
 
-					var newClassDeclaration = classDeclaration
-												.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
-												.InsertNodesBefore( r => r.Members.First(), newRegionConst )
-												.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
+				var newRegionConst = CreateCopyConstructor( className, values );
 
-					var newRoot = root.ReplaceNode( classDeclaration, newClassDeclaration );
+				var newClassDeclaration = classDeclaration
+											.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
+											.InsertNodesBefore( r => r.Members.First(), newRegionConst )
+											.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
 
-					var newDocument = context.Document.WithSyntaxRoot( newRoot );
+				var newRoot = root.ReplaceNode( classDeclaration, newClassDeclaration );
 
-					return Task.FromResult( newDocument );
-				}
+				var newDocument = context.Document.WithSyntaxRoot( newRoot );
 
-				// コード編集を登録します。
-				context.RegisterCodeFix(
-					CodeAction.Create( CodeFixResources.CodeFixTitle, _ => CreateChangedDocument( members ) ), diagnostic );
-
-				context.RegisterCodeFix(
-					CodeAction.Create( CodeFixResources.CodeFixTitleProperyOnly, _ => CreateChangedDocument( members.OfType<PropertyDeclarationSyntax>() ) ), diagnostic );
+				return Task.FromResult( newDocument );
 			}
+
+			// コード編集を登録します。
+			context.RegisterCodeFix(
+				CodeAction.Create( CodeFixResources.CodeFixTitle, _ => CreateChangedDocument( members ) ), diagnostic );
+
+			context.RegisterCodeFix(
+				CodeAction.Create( CodeFixResources.CodeFixTitleProperyOnly, _ => CreateChangedDocument( members.OfType<PropertyDeclarationSyntax>() ) ), diagnostic );
 		}
 
 		static string CreateCopyValue( SemanticModel model, TypeSyntax type, string valueName ) {
