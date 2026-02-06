@@ -5,7 +5,7 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-	<VersionPrefix>1.1</VersionPrefix>
+	<VersionPrefix>1.2</VersionPrefix>
   </PropertyGroup>
 
   <PropertyGroup>

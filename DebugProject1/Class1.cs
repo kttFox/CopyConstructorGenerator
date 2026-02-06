@@ -14,6 +14,8 @@ namespace Project1 {
 		public string String { get; set; }
 		public DateTime DateTime { get; set; }
 		public DayOfWeek DayOfWeek { get; set; }
+		public Class2.SampleEnum Enum { get; set; }
+
 		public Class1 Class { get; set; }
 		public List<string> List { get; set; }
 		public List<Class1> List2 { get; set; }
@@ -32,8 +34,13 @@ namespace Project1 {
 
 		public ReadOnlyCollection<string> ReadOnlyCollection { get; set; }
 		public ReadOnlyDictionary<string, string> ReadOnlyDictionary { get; set; }
-
-
 	}
 
+	public class Class2 {
+		public enum SampleEnum {
+			One,
+			Two,
+			Three
+		}
+	}
 }

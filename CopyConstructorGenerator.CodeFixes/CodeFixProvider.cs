@@ -134,6 +134,10 @@ namespace CopyConstructorGenerator {
 				return $"new {type}({value}. )";
 			}
 
+			if( type is QualifiedNameSyntax qualifiedNameSyntax ) {
+				type = qualifiedNameSyntax.Right;
+			}
+
 			// struct or class
 
 			switch( type ) {
