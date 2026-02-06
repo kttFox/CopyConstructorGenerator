@@ -118,10 +118,10 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="CodeFixTitle" xml:space="preserve">
-    <value>コピーコンストラクタの作成</value>
+    <value>コピーコンストラクターの作成</value>
   </data>
   <data name="CodeFixTitleProperyOnly" xml:space="preserve">
-    <value>コピーコンストラクタの作成 (プロパティのみ)</value>
+    <value>コピーコンストラクターの作成 (プロパティのみ)</value>
   </data>
   <data name="summary" xml:space="preserve">
     <value>/// &lt;summary&gt;

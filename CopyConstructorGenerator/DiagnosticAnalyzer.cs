@@ -39,7 +39,5 @@ namespace CopyConstructorGenerator {
 				context.ReportDiagnostic( diagnostic );
 			}
 		}
-
-
 	}
 }

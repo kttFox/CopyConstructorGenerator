@@ -8,39 +8,69 @@ using System.Threading.Tasks;
 #pragma warning disable IDE0290
 #pragma warning disable IDE0305
 
-namespace Project1 {
-	class Class1 {
-		public int Number { get; set; }
-		public string String { get; set; }
-		public DateTime DateTime { get; set; }
-		public DayOfWeek DayOfWeek { get; set; }
-		public Class2.SampleEnum Enum { get; set; }
+namespace Project1
+{
+    class Class1
+    {
+        public int Number { get; set; }
+        public string String { get; set; }
+        public DateTime DateTime { get; set; }
+        public DayOfWeek DayOfWeek { get; set; }
+        public Class2.SampleEnum Enum { get; set; }
 
-		public Class1 Class { get; set; }
-		public List<string> List { get; set; }
-		public List<Class1> List2 { get; set; }
-		public List<List<string>> MultiList { get; set; }
-		public Dictionary<string, int> Dictionary { get; set; }
+        public Class1 Class { get; set; }
+        public List<string> List { get; set; }
+        public List<Class1> List2 { get; set; }
+        public List<List<string>> MultiList { get; set; }
+        public Dictionary<string, int> Dictionary { get; set; }
 
-		public string f_String = "FieldString";
-		public int f_Number = 0;
-		public DateTime f_DateTime;
+        public string f_String = "FieldString";
+        public int f_Number = 0;
+        public DateTime f_DateTime;
 
 
-		public static string StaticString { get; set; } = "StaticString";
-		public const string ConstString = "ConstString";
+        public static string StaticString { get; set; } = "StaticString";
+        public const string ConstString = "ConstString";
 
-		public Action<Class1> Action { get; set; }
+        public Action<Class1> Action { get; set; }
 
-		public ReadOnlyCollection<string> ReadOnlyCollection { get; set; }
-		public ReadOnlyDictionary<string, string> ReadOnlyDictionary { get; set; }
-	}
+        public ReadOnlyCollection<string> ReadOnlyCollection { get; set; }
+        public ReadOnlyDictionary<string, string> ReadOnlyDictionary { get; set; }
+    }
 
-	public class Class2 {
-		public enum SampleEnum {
-			One,
-			Two,
-			Three
-		}
-	}
+    public class Class2 : BaseClass
+    {
+        /// <summary>
+        /// 
+        /// </summary>
+        public enum SampleEnum
+        {
+            One,
+            Two,
+            Three
+        }
+    }
+
+    public class BaseClass
+    {
+        /// <summary>
+        /// コピーコンストラクター
+        /// </summary>
+        public BaseClass(BaseClass value)
+        {
+            this.Value = value.Value;
+        }
+
+        public BaseClass()
+        {
+
+        }
+
+        public string Value { get; set; }
+    }
+
+    public class A
+    {
+
+    }
 }

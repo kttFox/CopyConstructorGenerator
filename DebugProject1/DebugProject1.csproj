@@ -2,7 +2,6 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
 	<Nullable>enable</Nullable>
-    <OutputType>Exe</OutputType>
     <RootNamespace>Project1</RootNamespace>
     <AssemblyName>Project1</AssemblyName>
   </PropertyGroup>

@@ -46,6 +46,9 @@ namespace CopyConstructorGenerator {
 								_ => false,
 							} );
 
+			// 基底クラスのコピーコンストラクターの存在をチェック
+			var hasBaseClassCopyConstructor = HasBaseClassCopyConstructor( model, classDeclaration );
+
 			Task<Document> CreateChangedDocument( IEnumerable<MemberDeclarationSyntax> members ) {
 				var values = members.Select( x => {
 					switch( x ) {
@@ -66,12 +69,21 @@ namespace CopyConstructorGenerator {
 					}
 				} );
 
-				var newRegionConst = CreateCopyConstructor( className, values );
 
-				var newClassDeclaration = classDeclaration
-											.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().AddRange( Enumerable.Range( 0, 2 ).Select( x => SyntaxFactory.ElasticCarriageReturnLineFeed ) ) ) )
-											.InsertNodesBefore( r => r.Members.First(), newRegionConst )
-											.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
+				var newRegionConst = CreateCopyConstructor( className, values, hasBaseClassCopyConstructor );
+
+				ClassDeclarationSyntax newClassDeclaration;
+				if( classDeclaration.Members.Count == 0 ) {
+					newClassDeclaration = 
+						classDeclaration.AddMembers( newRegionConst.ToArray() )
+							.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
+				} else {
+					newClassDeclaration =
+						classDeclaration
+							.ReplaceNode( r => r.Members.First(), f => f.WithLeadingTrivia( f.GetLeadingTrivia().InsertRange( 0, Enumerable.Range( 0, 1 ).Select( x => SyntaxFactory.CarriageReturnLineFeed ) ) ) )
+							.InsertNodesBefore( r => r.Members.First(), newRegionConst )
+							.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
+				}
 
 				var newRoot = root.ReplaceNode( classDeclaration, newClassDeclaration );
 
@@ -86,6 +98,25 @@ namespace CopyConstructorGenerator {
 
 			context.RegisterCodeFix(
 				CodeAction.Create( CodeFixResources.CodeFixTitleProperyOnly, _ => CreateChangedDocument( members.OfType<PropertyDeclarationSyntax>() ) ), diagnostic );
+		}
+
+		/// <summary>
+		/// 基底クラスにコピーコンストラクターが存在するかチェック
+		/// </summary>
+		static bool HasBaseClassCopyConstructor( SemanticModel model, ClassDeclarationSyntax classDeclaration ) {
+			var classSymbol = model.GetDeclaredSymbol( classDeclaration ) as INamedTypeSymbol;
+			if( classSymbol?.BaseType == null || classSymbol.BaseType.SpecialType == SpecialType.System_Object ) {
+				return false;
+			}
+
+			var baseType = classSymbol.BaseType;
+
+			// 基底クラスのコンストラクターをチェック
+			var copyConstructor = baseType.Constructors.FirstOrDefault( ctor =>
+				!ctor.IsStatic && ctor.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals( ctor.Parameters[0].Type, baseType )
+			);
+
+			return copyConstructor != null;
 		}
 
 		static string CreateCopyValue( SemanticModel model, TypeSyntax type, string valueName ) {
@@ -156,21 +187,31 @@ namespace CopyConstructorGenerator {
 			return $"new {type}({value})";
 		}
 
-		/// <summary>
+	/// <summary>
+	/// コピーコンストラクターを生成
+	/// </summary>
+	static IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values, bool hasBaseClassCopyConstructor ) {
+		var baseInitializer = hasBaseClassCopyConstructor ? " : base(value)" : "";
 
-		/// </summary>
-		static IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values ) {
-			var regionSource =
-					$$"""
-						{{CodeFixResources.summary}}
-						public {{className}} ( {{className}} value ) {
-							{{string.Join( "\r\n", values.ToArray() )}}
-						}
-					""";
-			return CSharpSyntaxTree.ParseText( regionSource ).GetRoot()
-									.ChildNodes()
-									.OfType<MemberDeclarationSyntax>();
-		}
+			// ParseText で生成すると コンストラクター として認識されないため、ダミークラスに埋め込んでから取り出す
+			var regionSource = $$"""
+			class Dummy {
+				{{CodeFixResources.summary}}
+				public {{className}}({{className}} value){{baseInitializer}}
+				{
+					{{string.Join( "\r\n", values.ToArray() )}}
+				}
+			}
+			""";
+		var tree = CSharpSyntaxTree.ParseText( regionSource );
+		var root = tree.GetRoot();
+
+		// ダミークラスからコンストラクターメンバーを取り出す
+		return root.DescendantNodes()
+				   .OfType<ClassDeclarationSyntax>()
+				   .First()
+				   .Members;
+	}
 
 	}
 }
