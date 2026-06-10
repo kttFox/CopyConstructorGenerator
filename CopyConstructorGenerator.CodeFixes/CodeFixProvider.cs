@@ -74,7 +74,7 @@ namespace CopyConstructorGenerator {
 
 				ClassDeclarationSyntax newClassDeclaration;
 				if( classDeclaration.Members.Count == 0 ) {
-					newClassDeclaration = 
+					newClassDeclaration =
 						classDeclaration.AddMembers( newRegionConst.ToArray() )
 							.ReplaceNode( r => r.Members.First(), r => r.WithAdditionalAnnotations( Formatter.Annotation ) );
 				} else {
@@ -126,72 +126,104 @@ namespace CopyConstructorGenerator {
 		static readonly string[] genericArgs = ["x", "z", "k"];
 
 		static string GetDeepInstance( SemanticModel model, TypeSyntax type, string value, int count = 0 ) {
-			if( type is GenericNameSyntax generic ) {
+			var normalizedType = NormalizeTypeSyntax( type );
 
-				// List と　Dictionary
-				switch( generic.Identifier.Text ) {
-					case "List": {
-						var arg = generic.TypeArgumentList.Arguments.First();
-						if( arg is PredefinedTypeSyntax ) {
-							return $"{value}.ToList()";
-						} else {
-							var T = ( count < genericArgs.Length ) ? genericArgs[count] : "x" + count;
+			if( TryCreateListCopyExpression( model, normalizedType, value, count, out var listExpression ) ) {
+				return listExpression;
+			}
 
-							return $"{value}.Select({T}=> {GetDeepInstance( model, arg, $"{T}", count + 1 )} ).ToList()";
-						}
-					}
+			if( TryCreateDictionaryCopyExpression( model, normalizedType, value, count, out var dictionaryExpression ) ) {
+				return dictionaryExpression;
+			}
 
-					case "Dictionary": {
-						if( generic.TypeArgumentList.Arguments.Any( x => x is not PredefinedTypeSyntax ) ) {
-							var keyType = generic.TypeArgumentList.Arguments[0];
-							var valueType = generic.TypeArgumentList.Arguments[1];
+			if( IsDirectCopyType( model, normalizedType ) ) {
+				return value;
+			}
 
-							var k = ( count == 0 ) ? "k" : "k" + count;
-							var v = ( count == 0 ) ? "v" : "v" + count;
+			return type is NullableTypeSyntax 
+						? $"{value} is not null ? new {normalizedType}({value}) : null"
+						: $"new {normalizedType}({value})";
+		}
 
-							return $"{value}.ToDictionary({k}=>{GetDeepInstance( model, keyType, $"{k}.Key", count + 1 )}, {v}=> {GetDeepInstance( model, valueType, $"{v}.Value", count + 1 )} )";
-						} else {
-							return $"{value}.ToDictionary(k=>k.Key, v=>v.Value )";
-						}
-					}
-
-					default:
-						break;
-				}
-
-				// Generic型の何か
-				return $"new {type}({value}. )";
+		static TypeSyntax NormalizeTypeSyntax( TypeSyntax type ) {
+			while( type is NullableTypeSyntax nullableType ) {
+				type = nullableType.ElementType;
 			}
 
 			if( type is QualifiedNameSyntax qualifiedNameSyntax ) {
-				type = qualifiedNameSyntax.Right;
+				return qualifiedNameSyntax.Right;
 			}
 
-			// struct or class
-
-			switch( type ) {
-				case IdentifierNameSyntax: {
-					switch( ( model.GetSymbolInfo( type ).Symbol as ITypeSymbol )?.TypeKind ) {
-						case TypeKind.Enum:
-						case TypeKind.Struct:
-							return value;
-					}
-
-					break;
-				}
-				case PredefinedTypeSyntax:
-				case NullableTypeSyntax:
-					return value;
-			}
-
-			return $"new {type}({value})";
+			return type;
 		}
 
-	/// <summary>
-	/// コピーコンストラクターを生成
-	/// </summary>
-	static IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values, bool hasBaseClassCopyConstructor ) {
-		var baseInitializer = hasBaseClassCopyConstructor ? " : base(value)" : "";
+		static bool TryCreateListCopyExpression( SemanticModel model, TypeSyntax type, string value, int count, out string expression ) {
+			expression = null!;
+
+			if( type is not GenericNameSyntax generic || !IsConstructedFrom( model, type, "System.Collections.Generic.List`1" ) ) {
+				return false;
+			}
+
+			var arg = generic.TypeArgumentList.Arguments.First();
+			if( IsDirectCopyType( model, arg ) ) {
+				expression = type.Parent is NullableTypeSyntax ? $"{value}?.ToList()" : $"{value}.ToList()";
+				return true;
+			}
+
+			var lambdaArg = GetLambdaArgName( count, "x" );
+			expression = type.Parent is NullableTypeSyntax
+				? $"{value}?.Select({lambdaArg}=> {GetDeepInstance( model, arg, lambdaArg, count + 1 )} ).ToList()"
+				: $"{value}.Select({lambdaArg}=> {GetDeepInstance( model, arg, lambdaArg, count + 1 )} ).ToList()";
+			return true;
+		}
+
+		static bool TryCreateDictionaryCopyExpression( SemanticModel model, TypeSyntax type, string value, int count, out string expression ) {
+			expression = null!;
+
+			if( type is not GenericNameSyntax generic || !IsConstructedFrom( model, type, "System.Collections.Generic.Dictionary`2" ) ) {
+				return false;
+			}
+
+			var keyType = generic.TypeArgumentList.Arguments[0];
+			var valueType = generic.TypeArgumentList.Arguments[1];
+
+			if( IsDirectCopyType( model, keyType ) && IsDirectCopyType( model, valueType ) ) {
+				expression = type.Parent is NullableTypeSyntax
+								? $"{value}?.ToDictionary(k=>k.Key, v=>v.Value )" 
+								: $"{value}.ToDictionary(k=>k.Key, v=>v.Value )";
+				return true;
+			}
+
+			var k = ( count == 0 ) ? "k" : "k" + count;
+			var v = ( count == 0 ) ? "v" : "v" + count;
+
+			expression = type.Parent is NullableTypeSyntax
+				? $"{value}?.ToDictionary({k}=>{GetDeepInstance( model, keyType, $"{k}.Key", count + 1 )}, {v}=> {GetDeepInstance( model, valueType, $"{v}.Value", count + 1 )} )"
+				: $"{value}.ToDictionary({k}=>{GetDeepInstance( model, keyType, $"{k}.Key", count + 1 )}, {v}=> {GetDeepInstance( model, valueType, $"{v}.Value", count + 1 )} )";
+			return true;
+		}
+
+		static bool IsDirectCopyType( SemanticModel model, TypeSyntax type ) {
+			type = NormalizeTypeSyntax( type );
+
+			if( type is PredefinedTypeSyntax ) {
+				return true;
+			}
+
+			var symbol = model.GetTypeInfo( type ).Type;
+
+			return symbol?.TypeKind is TypeKind.Enum or TypeKind.Struct;
+		}
+
+		static string GetLambdaArgName( int count, string fallbackPrefix ) {
+			return ( count < genericArgs.Length ) ? genericArgs[count] : fallbackPrefix + count;
+		}
+
+		/// <summary>
+		/// コピーコンストラクターを生成
+		/// </summary>
+		static IEnumerable<MemberDeclarationSyntax> CreateCopyConstructor( string className, IEnumerable<string> values, bool hasBaseClassCopyConstructor ) {
+			var baseInitializer = hasBaseClassCopyConstructor ? " : base(value)" : "";
 
 			// ParseText で生成すると コンストラクター として認識されないため、ダミークラスに埋め込んでから取り出す
 			var regionSource = $$"""
@@ -203,15 +235,23 @@ namespace CopyConstructorGenerator {
 				}
 			}
 			""";
-		var tree = CSharpSyntaxTree.ParseText( regionSource );
-		var root = tree.GetRoot();
+			var tree = CSharpSyntaxTree.ParseText( regionSource );
+			var root = tree.GetRoot();
 
-		// ダミークラスからコンストラクターメンバーを取り出す
-		return root.DescendantNodes()
-				   .OfType<ClassDeclarationSyntax>()
-				   .First()
-				   .Members;
-	}
+			// ダミークラスからコンストラクターメンバーを取り出す
+			return root.DescendantNodes()
+					   .OfType<ClassDeclarationSyntax>()
+					   .First()
+					   .Members;
+		}
 
+		static bool IsConstructedFrom( SemanticModel model, TypeSyntax typeSyntax, string metadataName ) {
+			var type = model.GetTypeInfo( typeSyntax ).Type as INamedTypeSymbol;
+			var target = model.Compilation.GetTypeByMetadataName( metadataName );
+
+			return type is not null
+				&& target is not null
+				&& SymbolEqualityComparer.Default.Equals( type.OriginalDefinition, target );
+		}
 	}
 }

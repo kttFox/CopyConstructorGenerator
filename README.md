@@ -2,12 +2,6 @@
 Visual Studio 2022 / 2026 Extension  
 
 コピーコンストラクタを作成します。  
-class, List, Dictionary に対応しています。
-
-# CopyConstructorGenerator
-Visual Studio 2022 / 2026 Extension  
-
-コピーコンストラクタを作成します。  
 class, List, Dictionary に対応しています。  
 nullable に対応
 

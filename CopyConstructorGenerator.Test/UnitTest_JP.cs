@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -31,7 +32,6 @@ public class UnitTest_JP {
 		var testCode = """
 		               class A {
 		               }
-
 		               """;
 
 		var fixTest = """
@@ -44,7 +44,6 @@ public class UnitTest_JP {
 		              
 		                  }
 		              }
-
 		              """;
 
 		var expected = Verify.Diagnostic( "CopyConstructorGenerator" ).WithLocation( 1, 7 );
@@ -64,8 +63,9 @@ public class UnitTest_JP {
 		var testCode = """
 			class A {
 			    public int X { get; set; }
+				public int? Y { get; set; }
+				public int Z;
 			}
-
 			""";
 
 		var fixTest = """
@@ -76,11 +76,14 @@ public class UnitTest_JP {
 			    public A(A value)
 			    {
 			        this.X = value.X;
+			        this.Y = value.Y;
+			        this.Z = value.Z;
 			    }
 
 			    public int X { get; set; }
+				public int? Y { get; set; }
+				public int Z;
 			}
-
 			""";
 
 		var expected = Verify.Diagnostic( "CopyConstructorGenerator" ).WithLocation( 1, 7 );
@@ -193,9 +196,7 @@ public class UnitTest_JP {
 			TestCode = testCode,
 			FixedCode = fixTest,
 			ExpectedDiagnostics = { expected },
-			FixedState = { ExpectedDiagnostics = { expected, DiagnosticResult.CompilerError( "CS0111" ).WithSpan( 10, 12, 10, 13 ).WithArguments( "A", "A" ), } },
-			CodeFixTestBehaviors = CodeFixTestBehaviors.FixOne,
-
+			FixedState = { ExpectedDiagnostics = { expected } },
 		};
 
 		await test.RunAsync( CancellationToken.None );
@@ -208,7 +209,6 @@ public class UnitTest_JP {
 			    public int X { get; set; }
 			    private int num = 10;
 			}
-
 			""";
 
 		var fixTest = """
@@ -224,7 +224,6 @@ public class UnitTest_JP {
 			    public int X { get; set; }
 			    private int num = 10;
 			}
-
 			""";
 
 		var expected = Verify.Diagnostic( "CopyConstructorGenerator" ).WithLocation( 1, 7 );
@@ -235,7 +234,123 @@ public class UnitTest_JP {
 			ExpectedDiagnostics = { expected },
 			FixedState = { ExpectedDiagnostics = { expected } },
 			CodeActionIndex = 1,  // プロパティのみのコードフィックス（2番目）を選択
-			CodeFixTestBehaviors = CodeFixTestBehaviors.FixOne | CodeFixTestBehaviors.SkipFixAllCheck,
+		};
+
+		await test.RunAsync( CancellationToken.None );
+	}
+
+	[TestMethod]
+	public async Task CodeFix_Class() {
+		var testCode = """
+		               class A {
+		                   public A A1 { get; set; }
+		                   public A? A2 { get; set; }
+		               }
+		               """;
+
+		var fixTest = """
+		              class A {
+		                  /// <summary>
+		                  /// コピーコンストラクター
+		                  /// </summary>
+		                  public A(A value)
+		                  {
+		                      this.A1 = new A(value.A1);
+		                      this.A2 = value.A2 is not null ? new A(value.A2) : null;
+		                  }
+
+		                  public A A1 { get; set; }
+		                  public A? A2 { get; set; }
+		              }
+		              """;
+
+		var expected = Verify.Diagnostic( "CopyConstructorGenerator" ).WithLocation( 1, 7 );
+
+		var test = new Verify.Test() {
+			TestCode = testCode,
+			FixedCode = fixTest,
+			ExpectedDiagnostics = { expected },
+			FixedState = { ExpectedDiagnostics = { expected } },
+		};
+
+		await test.RunAsync( CancellationToken.None );
+	}
+
+	[TestMethod]
+	public async Task CodeFix_ListProperty() {
+		var testCode = """
+			using System.Collections.Generic;
+			class A {
+			    public List<string> List1 { get; set; }
+				public List<string>? List2 { get; set; }
+			}
+			""";
+
+		var fixTest = """
+			using System.Collections.Generic;
+			class A {
+			    /// <summary>
+			    /// コピーコンストラクター
+			    /// </summary>
+			    public A(A value)
+			    {
+			        this.List1 = value.List1.ToList();
+			        this.List2 = value.List2?.ToList();
+			    }
+
+			    public List<string> List1 { get; set; }
+				public List<string>? List2 { get; set; }
+			}
+			""";
+
+		var expected = Verify.Diagnostic( "CopyConstructorGenerator" ).WithLocation( 2, 7 );
+
+		var test = new Verify.Test() {
+			TestCode = testCode,
+			FixedCode = fixTest,
+			ExpectedDiagnostics = { expected },
+			FixedState = { ExpectedDiagnostics = { expected } },
+			CodeActionIndex = 1,  // プロパティのみのコードフィックス（2番目）を選択
+		};
+
+		await test.RunAsync( CancellationToken.None );
+	}
+
+	[TestMethod]
+	public async Task CodeFix_DictionaryProperty() {
+		var testCode = """
+		               using System.Collections.Generic;
+		               class A {
+		                   public Dictionary<string, string> Dic1 { get; set; }
+		                   public Dictionary<string, string>? Dic2 { get; set; }
+		               }
+		               """;
+
+		var fixTest = """
+		              using System.Collections.Generic;
+		              class A {
+		                  /// <summary>
+		                  /// コピーコンストラクター
+		                  /// </summary>
+		                  public A(A value)
+		                  {
+		                      this.Dic1 = value.Dic1.ToDictionary(k => k.Key, v => v.Value);
+		                      this.Dic2 = value.Dic2?.ToDictionary(k => k.Key, v => v.Value);
+		                  }
+
+		                  public Dictionary<string, string> Dic1 { get; set; }
+		                  public Dictionary<string, string>? Dic2 { get; set; }
+		              }
+		              """;
+
+		var expected = Verify.Diagnostic( "CopyConstructorGenerator" ).WithLocation( 2, 7 );
+
+		var test = new Verify.Test() {
+			TestCode = testCode,
+			FixedCode = fixTest,
+			ExpectedDiagnostics = { expected },
+			FixedState = { ExpectedDiagnostics = { expected } },
+			CodeActionIndex = 1,  // プロパティのみのコードフィックス（2番目）を選択
 		};
 
 		await test.RunAsync( CancellationToken.None );

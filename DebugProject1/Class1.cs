@@ -19,8 +19,9 @@ namespace Project1
         public Class2.SampleEnum Enum { get; set; }
 
         public Class1 Class { get; set; }
+        public Class1? Class2 { get; set; }
         public List<string> List { get; set; }
-        public List<Class1> List2 { get; set; }
+        public List<Class1>? List2 { get; set; }
         public List<List<string>> MultiList { get; set; }
         public Dictionary<string, int> Dictionary { get; set; }
 
@@ -32,7 +33,7 @@ namespace Project1
         public static string StaticString { get; set; } = "StaticString";
         public const string ConstString = "ConstString";
 
-        public Action<Class1> Action { get; set; }
+        public Action<Class1>? Action { get; set; }
 
         public ReadOnlyCollection<string> ReadOnlyCollection { get; set; }
         public ReadOnlyDictionary<string, string> ReadOnlyDictionary { get; set; }
